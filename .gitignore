@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+node_modules/
+dist/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+cloudflared
+models/*
+!models/README.md
+backend/data/*
+!backend/data/.gitkeep
