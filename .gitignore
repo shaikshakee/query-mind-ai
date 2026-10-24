@@ -14,3 +14,4 @@ models/*
 !models/README.md
 backend/data/*
 !backend/data/.gitkeep
+backend/venv311/

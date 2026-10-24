@@ -1,6 +1,7 @@
 
 import asyncio
 import os
+import secrets
 import threading
 import time
 import uuid
@@ -9,6 +10,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from . import config
@@ -16,10 +18,13 @@ from .ai_service import load_model, generate_answer
 from .search_service import search_web, needs_web
 from .document_service import extract_text
 
+
 conversations = {}
 conversations_lock = threading.Lock()
 request_buckets = defaultdict(deque)
 rate_limit_lock = threading.Lock()
+
+API_ACCESS_TOKEN = os.getenv("API_ACCESS_TOKEN", "").strip()
 
 
 @asynccontextmanager
@@ -28,16 +33,17 @@ async def lifespan(app: FastAPI):
         threading.Thread(
             target=load_model,
             daemon=True,
-            name="smartassist-model-loader",
+            name="query-mind-model-loader",
         ).start()
     yield
 
 
 app = FastAPI(
-    title="SmartAssist AI",
-    version="2.0.0",
+    title="Query Mind AI",
+    version="2.1.0",
     lifespan=lifespan,
 )
+
 
 frontend_url = os.getenv(
     "FRONTEND_URL",
@@ -55,7 +61,7 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS", "DELETE"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -80,6 +86,37 @@ def model_status():
 
 
 @app.middleware("http")
+async def protect_api(request: Request, call_next):
+    # Protect all API endpoints except CORS preflight requests.
+    if request.url.path.startswith("/api/"):
+        # Refuse API access if the server has no configured token.
+        if not API_ACCESS_TOKEN:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "detail": "API access token is not configured."
+                },
+            )
+
+        # Browser clients must send Authorization: Bearer <token>.
+        supplied_token = request.headers.get("Authorization", "")
+        expected_token = f"Bearer {API_ACCESS_TOKEN}"
+
+        if not secrets.compare_digest(
+            supplied_token.encode("utf-8"),
+            expected_token.encode("utf-8"),
+        ):
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "detail": "Unauthorized. Valid API token required."
+                },
+            )
+
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def basic_rate_limit(request: Request, call_next):
     if request.url.path.startswith("/api/"):
         ip = request.client.host if request.client else "unknown"
@@ -92,8 +129,6 @@ async def basic_rate_limit(request: Request, call_next):
                 bucket.popleft()
 
             if len(bucket) >= 20:
-                from fastapi.responses import JSONResponse
-
                 return JSONResponse(
                     status_code=429,
                     content={
@@ -113,7 +148,7 @@ async def basic_rate_limit(request: Request, call_next):
 @app.get("/")
 async def home():
     return {
-        "service": "SmartAssist AI",
+        "service": "Query Mind AI",
         "message": "AI chat backend is running.",
         "health": "/health",
     }
@@ -162,12 +197,16 @@ async def upload_files(
             raw = await file.read(config.MAX_FILE_SIZE_BYTES + 1)
 
             if len(raw) > config.MAX_FILE_SIZE_BYTES:
-                raise ValueError("File exceeds the configured 8 MB limit.")
+                raise ValueError(
+                    "File exceeds the configured 8 MB limit."
+                )
 
             text = extract_text(filename, raw)
 
             if not text or not text.strip():
-                raise ValueError("No readable text was found in this file.")
+                raise ValueError(
+                    "No readable text was found in this file."
+                )
 
             with conversations_lock:
                 conversations[conversation_id]["documents"][filename] = text
@@ -277,7 +316,7 @@ async def chat(data: ChatBody):
 
     except Exception as exc:
         print(
-            f"[SmartAssist] Chat generation failed: "
+            f"[QueryMind] Chat generation failed: "
             f"{type(exc).__name__}: {exc}"
         )
 
