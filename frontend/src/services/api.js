@@ -21,7 +21,7 @@ async function request(path, options = {}) {
 }
 
 export const api = {
-  health: () => request('/health'),
+  health: () => request('/api/health'),
 
   chat: (message, conversationId = '') =>
     request('/api/chat', {
