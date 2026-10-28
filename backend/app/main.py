@@ -10,11 +10,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from . import config
-from .ai_service import load_model, generate_answer
+from .ai_service import load_model, generate_answer, stream_answer
 from .search_service import search_web, needs_web
 from .document_service import extract_text
 
@@ -88,7 +88,7 @@ def model_status():
 @app.middleware("http")
 async def protect_api(request: Request, call_next):
     # Protect all API endpoints except CORS preflight requests.
-    if request.url.path.startswith("/api/"):
+    if request.url.path.startswith("/api/") and request.url.path != "/api/health":
         # Refuse API access if the server has no configured token.
         if not API_ACCESS_TOKEN:
             return JSONResponse(
@@ -155,6 +155,7 @@ async def home():
 
 
 @app.get("/health")
+@app.get("/api/health")
 async def health():
     return model_status()
 
@@ -335,6 +336,72 @@ async def chat(data: ChatBody):
         "conversation_id": conversation_id,
         "web_search_used": bool(web_context),
     }
+
+
+@app.post("/api/chat/stream")
+async def chat_stream(data: ChatBody):
+    """SSE endpoint: sends model output immediately to avoid proxy idle timeouts."""
+    question = data.message.strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="Please enter a question.")
+
+    status = model_status()
+    if not status["model_loaded"]:
+        detail = "The AI model is not ready yet."
+        if status["model_error"]:
+            detail += " " + status["model_error"]
+        raise HTTPException(status_code=503, detail=detail)
+
+    conversation_id = data.conversation_id or str(uuid.uuid4())
+    with conversations_lock:
+        if conversation_id not in conversations:
+            conversations[conversation_id] = {"history": [], "documents": {}}
+        current_state = conversations[conversation_id]
+        generation_state = {
+            "history": list(current_state["history"]),
+            "documents": dict(current_state["documents"]),
+        }
+
+    async def event_stream():
+        import json
+        # Flush immediately so reverse proxies know the request is active.
+        yield ": connected\\n\\n"
+        try:
+            web_context = (
+                await asyncio.to_thread(search_web, question)
+                if needs_web(question) else ""
+            )
+            # Send metadata first so the client can keep the conversation ID.
+            yield "event: meta\ndata: " + json.dumps({
+                "conversation_id": conversation_id,
+                "web_search_used": bool(web_context),
+            }) + "\n\n"
+
+            iterator = stream_answer(question, generation_state, web_context)
+            while True:
+                piece = await asyncio.to_thread(next, iterator, None)
+                if piece is None:
+                    break
+                yield "data: " + json.dumps({"text": piece}, ensure_ascii=False) + "\n\n"
+
+            with conversations_lock:
+                conversations[conversation_id]["history"] = generation_state["history"][-20:]
+            yield "event: done\ndata: {}\n\n"
+        except Exception as exc:
+            print(f"[QueryMind] Stream request failed: {type(exc).__name__}: {exc}")
+            yield "event: error\ndata: " + json.dumps({
+                "detail": "AI generation failed. Check backend logs."
+            }) + "\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @app.post("/api/clear-chat")

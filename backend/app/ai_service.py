@@ -66,11 +66,19 @@ def load_model():
             tokenizer.truncation_side = "left"
 
             if torch.cuda.is_available():
+                # FP16 inference on NVIDIA GPUs; allow TF32 where supported.
                 dtype = torch.float16
-                print(
-                    "[QueryMind] GPU:",
-                    torch.cuda.get_device_name(0),
-                )
+                try:
+                    torch.backends.cuda.matmul.allow_tf32 = True
+                    torch.backends.cudnn.allow_tf32 = True
+                except Exception:
+                    pass
+                print("[QueryMind] GPU:", torch.cuda.get_device_name(0))
+                try:
+                    print("[QueryMind] GPU memory (GB):",
+                          round(torch.cuda.get_device_properties(0).total_memory / (1024 ** 3), 2))
+                except Exception:
+                    pass
             else:
                 dtype = torch.float32
                 print(
@@ -223,7 +231,7 @@ def generate_answer(
             prompt,
             return_tensors="pt",
             truncation=True,
-            max_length=1536,
+            max_length=1024,
         )
 
         device = _model.get_input_embeddings().weight.device
@@ -239,11 +247,10 @@ def generate_answer(
         )
 
         if _is_detailed_request(question) or docs or web_context:
-            max_new_tokens = min(configured_limit, 320)
+            max_new_tokens = min(max(configured_limit, 384), 768)
         else:
-            max_new_tokens = min(configured_limit, 128)
+            max_new_tokens = min(max(configured_limit, 192), 384)
 
-        # Avoid excessively small limits if config.py specifies a low value.
         max_new_tokens = max(64, max_new_tokens)
 
         with _generation_lock, torch.inference_mode():
@@ -295,3 +302,101 @@ def generate_answer(
             "Sorry, an error occurred while generating the response. "
             "Please try again."
         )
+
+
+def stream_answer(question: str, state: dict, web_context: str = ""):
+    """Yield decoded model text as it is generated (for SSE streaming)."""
+    if _model is None or _tokenizer is None:
+        detail = _load_error or "Model has not been loaded."
+        yield ("The AI model is not available. Check backend logs and "
+               f"ADAPTER_PATH. {detail[:300]}")
+        return
+
+    import torch
+    from transformers import TextIteratorStreamer
+
+    try:
+        docs = document_context(question, state)
+        extra = ""
+        if docs:
+            extra += "\n\nRelevant uploaded document excerpts:\n" + docs[:2600]
+        if web_context:
+            extra += ("\n\nWeb search results:\n" + web_context[:1800] +
+                      "\nUse relevant information and preserve supplied URLs.")
+
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        messages.extend(state.get("history", [])[-4:])
+        messages.append({"role": "user", "content": question + extra})
+
+        try:
+            prompt = _tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True,
+                enable_thinking=False,
+            )
+        except TypeError:
+            prompt = _tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True,
+            )
+
+        inputs = _tokenizer(
+            prompt, return_tensors="pt", truncation=True,
+            max_length=int(getattr(config, "MAX_INPUT_TOKENS", 1024)),
+        )
+        device = _model.get_input_embeddings().weight.device
+        inputs = {key: value.to(device) for key, value in inputs.items()}
+
+        configured_limit = int(getattr(config, "MAX_NEW_TOKENS", 500))
+        if _is_detailed_request(question) or docs or web_context:
+            max_new_tokens = min(max(configured_limit, 384), 768)
+        else:
+            max_new_tokens = min(max(configured_limit, 192), 384)
+
+        streamer = TextIteratorStreamer(
+            _tokenizer, skip_prompt=True, skip_special_tokens=True,
+            timeout=120.0,
+        )
+        generation_kwargs = dict(
+            **inputs, streamer=streamer, max_new_tokens=max_new_tokens,
+            do_sample=False, repetition_penalty=1.05,
+            pad_token_id=_tokenizer.pad_token_id,
+            eos_token_id=_tokenizer.eos_token_id, use_cache=True,
+        )
+
+        generated_parts = []
+        generation_error = []
+
+        def _run_generation():
+            try:
+                with _generation_lock, torch.inference_mode():
+                    _model.generate(**generation_kwargs)
+            except Exception as exc:
+                generation_error.append(exc)
+                print("[QueryMind] Streaming generation error:",
+                      type(exc).__name__, str(exc)[:300])
+
+        worker = threading.Thread(target=_run_generation, daemon=True)
+        worker.start()
+
+        for piece in streamer:
+            if piece:
+                generated_parts.append(piece)
+                yield piece
+
+        worker.join(timeout=5)
+        answer = _clean_answer("".join(generated_parts))
+        if generation_error and not answer:
+            raise generation_error[0]
+        if not answer:
+            answer = "Sorry, I couldn't generate an answer. Please try again."
+
+        history = state.setdefault("history", [])
+        history.extend([
+            {"role": "user", "content": question},
+            {"role": "assistant", "content": answer},
+        ])
+        state["history"] = history[-8:]
+
+    except Exception as exc:
+        print("[QueryMind] Streaming error:", type(exc).__name__, str(exc)[:300])
+        if not locals().get("generated_parts"):
+            yield "\nSorry, an error occurred while generating the response. Please check backend logs."

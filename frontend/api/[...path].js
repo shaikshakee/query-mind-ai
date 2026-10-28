@@ -1,66 +1,73 @@
+const API_BASE = (
+  import.meta.env.VITE_API_BASE_URL || ''
+).trim().replace(/\/$/, '');
 
-const BACKEND_URL = (process.env.BACKEND_URL || "").trim().replace(/\/+$/, "");
-const BACKEND_API_TOKEN = (process.env.BACKEND_API_TOKEN || "").trim();
+// Must match API_ACCESS_TOKEN configured on the backend. Keep secrets out of
+// source control; configure VITE_API_ACCESS_TOKEN in the frontend environment.
+const API_TOKEN = (import.meta.env.VITE_API_ACCESS_TOKEN || '').trim();
 
-const ALLOWED_PATHS = new Set([
-  "/api/health",
-  "/api/chat",
-  "/api/upload",
-  "/api/documents",
-  "/api/clear-chat",
-]);
+async function request(path, options = {}) {
+  const headers = new Headers(options.headers || {});
+  if (API_TOKEN) headers.set('Authorization', `Bearer ${API_TOKEN}`);
 
-export default async function handler(req, res) {
-  if (!BACKEND_URL || !BACKEND_API_TOKEN) {
-    return res.status(503).json({
-      detail: "Backend proxy is not configured.",
-    });
+  // Do not set Content-Type for FormData; the browser adds its boundary.
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+  });
+
+  const contentType = response.headers.get('content-type') || '';
+  let data = {};
+  if (contentType.includes('application/json')) {
+    data = await response.json();
   }
 
-  const incoming = new URL(req.url, "https://vercel.invalid");
-  const targetPath =
-    incoming.pathname === "/api/health"
-      ? "/health"
-      : incoming.pathname;
-
-  if (!ALLOWED_PATHS.has(incoming.pathname)) {
-    return res.status(404).json({ detail: "Endpoint not found." });
+  if (!response.ok) {
+    throw new Error(
+      data.detail || data.message || `Request failed (${response.status})`
+    );
   }
 
-  if (incoming.pathname === "/api/health" && req.method !== "GET") {
-    return res.status(405).json({ detail: "Method not allowed." });
-  }
-
-  const url = `${BACKEND_URL}${targetPath}${incoming.search}`;
-
-  try {
-    const headers = new Headers();
-    headers.set("Authorization", `Bearer ${BACKEND_API_TOKEN}`);
-
-    const contentType = req.headers["content-type"];
-    if (contentType) headers.set("Content-Type", contentType);
-
-    const response = await fetch(url, {
-      method: req.method,
-      headers,
-      body: ["GET", "HEAD"].includes(req.method)
-        ? undefined
-        : req,
-      duplex: "half",
-      redirect: "manual",
-    });
-
-    res.status(response.status);
-
-    const responseType = response.headers.get("content-type");
-    if (responseType) res.setHeader("Content-Type", responseType);
-
-    const body = Buffer.from(await response.arrayBuffer());
-    return res.send(body);
-  } catch {
-    return res.status(502).json({
-      detail: "Could not reach the AI backend. Check the tunnel and backend.",
-    });
-  }
+  return data;
 }
 
+export const api = {
+  // Public health endpoint, intentionally does not require the API token.
+  health: () => request('/api/health'),
+
+  chat: (message, conversationId = '') =>
+    request('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message,
+        conversation_id: conversationId || null,
+      }),
+    }),
+
+  upload: (files, conversationId) => {
+    const form = new FormData();
+    for (const file of files) form.append('files', file);
+
+    return request(
+      `/api/upload?conversation_id=${encodeURIComponent(conversationId)}`,
+      { method: 'POST', body: form }
+    );
+  },
+
+  documents: conversationId =>
+    request(`/api/documents?conversation_id=${encodeURIComponent(conversationId)}`),
+
+  clearDocuments: conversationId =>
+    request(
+      `/api/documents?conversation_id=${encodeURIComponent(conversationId)}`,
+      { method: 'DELETE' }
+    ),
+
+  clearChat: (conversationId = '') =>
+    request('/api/clear-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversation_id: conversationId || null }),
+    }),
+};

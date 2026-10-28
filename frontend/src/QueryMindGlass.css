@@ -1,0 +1,300 @@
+/*
+  Query Mind — iOS-inspired glassmorphism layer
+  Import after QueryMind.css. Visual-only overrides; chat/API logic is unchanged.
+*/
+:root {
+  --qm-glass-ink: #182235;
+  --qm-glass-muted: #64748b;
+  --qm-glass-line: rgba(255,255,255,.62);
+  --qm-glass-surface: rgba(255,255,255,.54);
+  --qm-glass-shadow: 0 24px 70px rgba(31, 48, 83, .14);
+}
+
+html, body, #root {
+  background: #eaf0fb;
+}
+
+body {
+  color: var(--qm-glass-ink);
+  background:
+    radial-gradient(ellipse at 12% 8%, rgba(151, 183, 255, .65), transparent 34%),
+    radial-gradient(ellipse at 88% 12%, rgba(206, 175, 255, .58), transparent 32%),
+    radial-gradient(ellipse at 70% 92%, rgba(137, 222, 220, .48), transparent 34%),
+    linear-gradient(135deg, #eef3ff 0%, #f6f2ff 52%, #eaf9fb 100%);
+  background-attachment: fixed;
+}
+
+.query-mind-theme.app-shell {
+  background: transparent !important;
+  color: var(--qm-glass-ink);
+}
+
+.query-mind-theme .sidebar {
+  background: rgba(245, 248, 255, .48) !important;
+  border-right: 1px solid rgba(255,255,255,.68) !important;
+  box-shadow: 8px 0 40px rgba(53, 68, 112, .06);
+  backdrop-filter: blur(28px) saturate(165%);
+  -webkit-backdrop-filter: blur(28px) saturate(165%);
+}
+
+.query-mind-theme .brand,
+.query-mind-theme .topbar,
+.query-mind-theme .chat-heading {
+  border-color: rgba(255,255,255,.62) !important;
+}
+
+.query-mind-theme .brand-mark,
+.query-mind-theme .bot-avatar,
+.query-mind-theme .querymind-intro-orb {
+  background: linear-gradient(145deg, #8aa8ff, #8a79e8 58%, #5ecacb) !important;
+  box-shadow: 0 8px 24px rgba(115, 128, 230, .32) !important;
+}
+
+.query-mind-theme .sidebar-card {
+  background: rgba(255,255,255,.40) !important;
+  border: 1px solid rgba(255,255,255,.72) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 8px 24px rgba(52, 68, 112, .06) !important;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.query-mind-theme .main-area {
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(255,255,255,.72), transparent 55%),
+    transparent !important;
+}
+
+.query-mind-theme .topbar {
+  background: rgba(255,255,255,.22);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.query-mind-theme .topbar h1,
+.query-mind-theme h1,
+.query-mind-theme strong,
+.query-mind-theme .chat-heading strong {
+  color: #202b43 !important;
+}
+
+.query-mind-theme .eyebrow,
+.query-mind-theme .tiny-label,
+.query-mind-theme .file-hint,
+.query-mind-theme .composer-bottom > span,
+.query-mind-theme .sidebar-muted,
+.query-mind-theme .brand span {
+  color: var(--qm-glass-muted) !important;
+}
+
+.query-mind-theme .workspace {
+  background: transparent !important;
+}
+
+.query-mind-theme .chat-panel {
+  background: rgba(255,255,255,.44) !important;
+  border: 1px solid rgba(255,255,255,.78) !important;
+  border-radius: 26px !important;
+  box-shadow: var(--qm-glass-shadow), inset 0 1px 0 rgba(255,255,255,.8) !important;
+  backdrop-filter: blur(30px) saturate(170%);
+  -webkit-backdrop-filter: blur(30px) saturate(170%);
+  animation: qm-glass-arrive .7s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.query-mind-theme .chat-heading,
+.query-mind-theme .upload-row,
+.query-mind-theme .file-hint,
+.query-mind-theme .document-list,
+.query-mind-theme .messages,
+.query-mind-theme .composer {
+  background: rgba(255,255,255,.30) !important;
+}
+
+.query-mind-theme .chat-heading {
+  border-bottom: 1px solid rgba(255,255,255,.72) !important;
+}
+
+.query-mind-theme .messages {
+  gap: 18px;
+  scrollbar-color: rgba(117, 132, 168, .42) transparent;
+}
+
+.query-mind-theme .messages::-webkit-scrollbar-thumb {
+  background: rgba(117, 132, 168, .38) !important;
+}
+
+.query-mind-theme .document-item {
+  color: #33415d !important;
+  background: rgba(255,255,255,.48) !important;
+  border: 1px solid rgba(255,255,255,.78) !important;
+  border-radius: 13px !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.query-mind-theme .composer {
+  border-top: 1px solid rgba(255,255,255,.68) !important;
+  border-radius: 0 0 26px 26px !important;
+}
+
+.query-mind-theme .composer textarea {
+  color: #202b43 !important;
+  background: rgba(255,255,255,.52) !important;
+  border: 1px solid rgba(255,255,255,.72) !important;
+  border-radius: 18px !important;
+  box-shadow: inset 0 1px 3px rgba(35, 49, 80, .04) !important;
+  transition: border-color .25s ease, box-shadow .25s ease, background .25s ease;
+}
+
+.query-mind-theme .composer textarea:focus {
+  background: rgba(255,255,255,.78) !important;
+  border-color: rgba(129, 151, 255, .70) !important;
+  box-shadow: 0 0 0 4px rgba(129,151,255,.13) !important;
+}
+
+.query-mind-theme .composer textarea::placeholder {
+  color: #8792aa !important;
+}
+
+.query-mind-theme .send-button,
+.query-mind-theme .primary-button {
+  color: #fff !important;
+  background: linear-gradient(135deg, #829fff, #8d7de8 65%, #6ebfcf) !important;
+  border: 1px solid rgba(255,255,255,.52) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 7px 18px rgba(117, 126, 225, .26);
+  transition: transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .22s ease, filter .22s ease !important;
+}
+
+.query-mind-theme .send-button:hover:not(:disabled),
+.query-mind-theme .primary-button:hover:not(:disabled) {
+  filter: brightness(1.04);
+  box-shadow: 0 10px 25px rgba(117, 126, 225, .34);
+  transform: translateY(-1px);
+}
+
+.query-mind-theme .quiet-button,
+.query-mind-theme .choose-file-button,
+.query-mind-theme .online-pill {
+  background: rgba(255,255,255,.44) !important;
+  border: 1px solid rgba(255,255,255,.78) !important;
+  border-radius: 12px !important;
+  color: #4b5872 !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.query-mind-theme .online-pill {
+  color: #287d70 !important;
+}
+
+.query-mind-theme .status-banner {
+  color: #64748b !important;
+}
+
+.query-mind-theme .querymind-intro {
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(151,183,255,.65), transparent 38%),
+    radial-gradient(ellipse at 80% 70%, rgba(206,175,255,.62), transparent 40%),
+    linear-gradient(135deg, #edf3ff, #f7f2ff 55%, #e9f9fb) !important;
+  color: #202b43 !important;
+  backdrop-filter: blur(30px);
+}
+
+.query-mind-theme .querymind-intro-wordmark span {
+  color: #827fe8 !important;
+}
+
+.querymind-intro-loader span {
+  background: #8b8ae8 !important;
+}
+
+/* iOS-like response entrance and soft, animated "thinking" state */
+.query-mind-theme .messages > * {
+  animation: qm-message-in .42s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.query-mind-theme .thinking-container {
+  position: relative;
+  padding: 13px 16px;
+  border: 1px solid rgba(255,255,255,.82);
+  border-radius: 20px;
+  background: rgba(255,255,255,.52);
+  box-shadow: 0 10px 28px rgba(45, 59, 96, .09), inset 0 1px 0 rgba(255,255,255,.9);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  animation: qm-thinking-breathe 2.1s ease-in-out infinite;
+}
+
+.query-mind-theme .thinking-container::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 15%, rgba(255,255,255,.55) 45%, transparent 70%);
+  transform: translateX(-110%);
+  animation: qm-glass-shimmer 2.2s ease-in-out infinite;
+}
+
+.query-mind-theme .thinking-container > * {
+  position: relative;
+  z-index: 1;
+}
+
+.query-mind-theme button:active:not(:disabled) {
+  transform: scale(.965) !important;
+  transition-duration: .1s !important;
+}
+
+@keyframes qm-glass-arrive {
+  from { opacity: 0; transform: translateY(12px) scale(.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes qm-message-in {
+  from { opacity: 0; transform: translateY(9px) scale(.992); filter: blur(2px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+@keyframes qm-thinking-breathe {
+  0%, 100% { box-shadow: 0 10px 28px rgba(45,59,96,.08), inset 0 1px 0 rgba(255,255,255,.9); }
+  50% { box-shadow: 0 14px 34px rgba(105,119,220,.17), inset 0 1px 0 rgba(255,255,255,.95); }
+}
+@keyframes qm-glass-shimmer {
+  0%, 20% { transform: translateX(-110%); opacity: 0; }
+  45% { opacity: .8; }
+  75%, 100% { transform: translateX(110%); opacity: 0; }
+}
+
+@media (max-width: 640px) {
+  .query-mind-theme .sidebar {
+    background: rgba(245,248,255,.58) !important;
+  }
+  .query-mind-theme .workspace {
+    padding: 10px !important;
+  }
+  .query-mind-theme .chat-panel {
+    border-radius: 20px !important;
+  }
+  .query-mind-theme .composer {
+    border-radius: 0 0 20px 20px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .query-mind-theme .chat-panel,
+  .query-mind-theme .messages > *,
+  .query-mind-theme .thinking-container,
+  .query-mind-theme .thinking-container::before {
+    animation: none !important;
+  }
+  .query-mind-theme button {
+    transition: none !important;
+  }
+}
+
+/* Browsers without backdrop-filter still get translucent surfaces. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .query-mind-theme .sidebar { background: rgba(245,248,255,.92) !important; }
+  .query-mind-theme .chat-panel { background: rgba(255,255,255,.90) !important; }
+  .query-mind-theme .thinking-container { background: rgba(255,255,255,.92); }
+}

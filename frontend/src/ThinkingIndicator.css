@@ -10,7 +10,7 @@
   background: transparent;
   border: none;
   box-shadow: none;
-  animation: none;
+  animation: thinking-appear 0.25s ease-out;
 }
 
 .thinking-avatar {
@@ -42,55 +42,57 @@
 .thinking-message {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 3px;
   color: #777782;
   font-size: 13px;
+  min-height: 20px;
 }
 
-.thinking-dots {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.thinking-word {
+  animation: word-fade 1.4s ease-in-out infinite;
 }
 
-.thinking-dots span {
-  display: block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #888892;
-  animation: querymind-dot 1.2s infinite ease-in-out;
+.thinking-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  margin-left: 2px;
+  background: #16856f;
+  animation: cursor-blink 0.8s steps(2, start) infinite;
 }
 
-.thinking-dots span:nth-child(1) {
-  animation-delay: 0s;
-}
-
-.thinking-dots span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.thinking-dots span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes querymind-dot {
-  0%,
-  60%,
-  100% {
-    opacity: 0.35;
-    transform: translateY(0);
+@keyframes thinking-appear {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
   }
 
-  30% {
+  to {
     opacity: 1;
-    transform: translateY(-3px);
+    transform: translateY(0);
+  }
+}
+
+@keyframes word-fade {
+  0%, 100% {
+    opacity: 0.65;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes cursor-blink {
+  to {
+    visibility: hidden;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .thinking-dots span {
+  .thinking-container,
+  .thinking-word,
+  .thinking-cursor {
     animation: none;
-    opacity: 0.7;
   }
 }
